@@ -19,7 +19,7 @@ void readTimeStamp(std::vector<double>& time_stamp, std::string timestamp_filena
     }
 }
 
-void readData(pcl::PointCloud<pcl::PointXYZ>& cloud, std::string filename)
+void readData(pcl::PointCloud<pcl::PointXYZI>& cloud, std::string filename)
 {
     printv(filename);
 
@@ -30,18 +30,19 @@ void readData(pcl::PointCloud<pcl::PointXYZ>& cloud, std::string filename)
     ptr = fopen(filename.c_str(),"rb");  // r for read, b for binary
     const size_t fileSize = fread(buffer, sizeof(unsigned char), BufferSize, ptr);
 
-    printf("File size = %d bytes\n", fileSize);
-    printf("Size of each item in bytes = %d\n", sizeof(unsigned char));
+    printf("File size = %d bytes\n", (int)(fileSize));
+    printf("Size of each item in bytes = %d\n", (int)(sizeof(unsigned char)));
 
 int count = 0;
     while(fread(buffer,sizeof(buffer),1,ptr)==1)
     {
         //for(int i = 0; i<4; i++)
         //    printf("%f ", ((float*)buffer)[i]); // prints a series of bytes
-        pcl::PointXYZ point;
+        pcl::PointXYZI point;
         point.x = ((float*)buffer)[0];
         point.y = ((float*)buffer)[1];
         point.z = ((float*)buffer)[2];
+        point.intensity = 0.01;
         cloud.push_back(point);
         count++    ;
     }
@@ -59,7 +60,7 @@ int main(int argc, char** argv)
     }
 
 
-    ros::init(argc, argv, "pc_pub");
+    ros::init(argc, argv, "pc_pub_node");
     ros::NodeHandle nh;
 
     int pc_count = 0;
@@ -74,6 +75,7 @@ int main(int argc, char** argv)
     while (ros::ok())
     {
         ros::spinOnce();
+        printv(pc_count);
 
         if(pc_count<10)
         {
@@ -99,10 +101,10 @@ int main(int argc, char** argv)
         
 
         if (pubLidarRaw.getNumSubscribers() != 0 && pc_count<time_stamp.size()){
+        //if (true){
             printv(pc_count);
 
-            pcl::PointCloud<pcl::PointXYZ> laserCloudIn;
-            //readData(laserCloudIn, "/home/zhenyu/datasets/kitti/2011_09_26_drive_0046_sync/2011_09_26/2011_09_26_drive_0046_sync/velodyne_points/data/0000000054.bin");
+            pcl::PointCloud<pcl::PointXYZI> laserCloudIn;
             readData(laserCloudIn, path+file_name+postfix);
             std::cout<<"after read, cloud size = "<<laserCloudIn.size()<<std::endl;
             sensor_msgs::PointCloud2 cloudMsgTemp;
@@ -112,11 +114,14 @@ int main(int argc, char** argv)
             printv(t);
             //cloudMsgTemp.header.stamp = ros::Time().fromSec(t);
             cloudMsgTemp.header.stamp = ros::Time().now();
-            cloudMsgTemp.header.frame_id = "velodyne";
+            cloudMsgTemp.header.frame_id = "/velodyne";
+            printv("before pub");
             pubLidarRaw.publish(cloudMsgTemp);
+            printv("afgter pub");
             pc_count++;
         }   
 
+        printv(ros::Time().now());
         rate.sleep();
     }
 
